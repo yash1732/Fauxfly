@@ -141,7 +141,6 @@ class DeepfakeTrainer:
                 filepath=str(self.output_dir / f'best_model_{self.model_type}.keras'),
                 monitor='val_accuracy',
                 save_best_only=True,
-                save_format='keras',  # Use native Keras format
                 verbose=1
             ),
             
