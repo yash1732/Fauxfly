@@ -28,9 +28,22 @@ class GradCAM:
         # Find the last convolutional layer if not specified
         if self.layer_name is None:
             for layer in reversed(model.layers):
-                if len(layer.output_shape) == 4:  # Conv layer has 4D output
+                # Check if layer is a Conv2D layer (compatible with Keras 3.x)
+                if hasattr(layer, 'output') and layer.__class__.__name__ in ['Conv2D', 'SeparableConv2D', 'DepthwiseConv2D']:
                     self.layer_name = layer.name
                     break
+                # Fallback: check output shape if available
+                elif hasattr(layer, 'output'):
+                    try:
+                        output_shape = layer.output.shape
+                        if len(output_shape) == 4:  # Conv layer has 4D output
+                            self.layer_name = layer.name
+                            break
+                    except:
+                        continue
+        
+        if self.layer_name is None:
+            raise ValueError("No convolutional layer found in the model. Please specify layer_name manually.")
         
         print(f"Using layer '{self.layer_name}' for Grad-CAM visualization")
         
