@@ -12,7 +12,12 @@ from pathlib import Path
 import json
 from tensorflow import keras
 
-from gradcam_explainability import GradCAM
+# ✅ IMPORT: Import the new functions
+from gradcam_explainability import (
+    make_gradcam_heatmap, 
+    explain_prediction,
+    find_last_conv_layer_name
+)
 
 
 class PipelineTester:
@@ -29,15 +34,22 @@ class PipelineTester:
         self.model_path = Path(model_path)
         self.test_dir = Path(test_dir)
         self.model = None
-        self.gradcam = None
+        self.last_conv_layer_name = None # ✅ ADD: Store layer name
         self.class_names = ['Fake', 'Real']
     
     def load_model(self):
         """Load trained model"""
         try:
             self.model = keras.models.load_model(self.model_path)
-            self.gradcam = GradCAM(self.model)
+            # Build the model on load
+            if not self.model.built:
+                self.model(tf.zeros((1, 224, 224, 3)))
+            
+            # ✅ EXECUTE: Find and store the layer name
+            self.last_conv_layer_name = find_last_conv_layer_name(self.model)
+            
             print(f"✓ Model loaded: {self.model_path.name}")
+            print(f"✓ Using Grad-CAM layer: '{self.last_conv_layer_name}'")
             return True
         except Exception as e:
             print(f"✗ Error loading model: {str(e)}")
@@ -58,12 +70,15 @@ class PipelineTester:
             img_batch = np.expand_dims(img_normalized, axis=0)
             
             # Predict
-            predictions = self.model.predict(img_batch, verbose=0)
+            predictions = self.model(img_batch, training=False) # Use __call__
             class_idx = np.argmax(predictions[0])
             confidence = predictions[0][class_idx] * 100
             
             # Generate Grad-CAM
-            heatmap = self.gradcam.compute_heatmap(img_normalized, class_idx)
+            # ✅ EXECUTE: Use the new function
+            heatmap = make_gradcam_heatmap(
+                img_batch, self.model, self.last_conv_layer_name, class_idx
+            )
             
             result = {
                 'image': image_path,
@@ -133,9 +148,11 @@ class PipelineTester:
         for i, img_path in enumerate(sampled):
             try:
                 save_path = output_dir / f'test_gradcam_{i+1}.png'
-                self.gradcam.explain_prediction(
-                    image_path=img_path,
+                # ✅ EXECUTE: Use the new function
+                explain_prediction(
                     model=self.model,
+                    last_conv_layer_name=self.last_conv_layer_name,
+                    image_path=img_path,
                     class_names=self.class_names,
                     save_path=save_path
                 )
@@ -195,13 +212,13 @@ class PipelineTester:
         dummy_input = np.random.rand(1, 224, 224, 3).astype(np.float32)
         
         # Warm up
-        _ = self.model.predict(dummy_input, verbose=0)
+        _ = self.model(dummy_input, training=False)
         
         # Measure speed
         times = []
         for _ in range(num_iterations):
             start = time.time()
-            _ = self.model.predict(dummy_input, verbose=0)
+            _ = self.model(dummy_input, training=False)
             times.append(time.time() - start)
         
         avg_time = np.mean(times) * 1000  # Convert to ms
@@ -212,6 +229,7 @@ class PipelineTester:
         
         return {'avg_time_ms': avg_time, 'std_time_ms': std_time, 'fps': 1000/avg_time}
     
+    # ... (generate_test_report is unchanged) ...
     def generate_test_report(self, batch_results, performance_metrics, speed_metrics):
         """Generate comprehensive test report"""
         print("\n" + "="*70)
@@ -291,7 +309,7 @@ class PipelineTester:
         print(f"\n✓ Report saved to {report_path}")
         
         return report
-    
+
     def run_all_tests(self):
         """Run complete test suite"""
         print("\n" + "="*70)

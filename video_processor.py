@@ -10,10 +10,15 @@ import seaborn as sns
 from pathlib import Path
 from tqdm import tqdm
 import json
+import tensorflow as tf
 from tensorflow import keras
 
-# ✅ FIXED: Import from the correct file name 'gradcam_explainability.py'
-from gradcam_explainability import GradCAM
+# ✅ IMPORT: Import the new functions, not the old class
+from gradcam_explainability import (
+    make_gradcam_heatmap, 
+    overlay_heatmap, 
+    find_last_conv_layer_name
+)
 
 
 class VideoDeepfakeDetector:
@@ -28,9 +33,18 @@ class VideoDeepfakeDetector:
             sampling_rate: Sample every Nth frame (default: 30, i.e., 1 FPS for 30 FPS video)
         """
         self.model = keras.models.load_model(model_path)
-        self.gradcam = GradCAM(self.model)
+        # Build the model on load
+        if not self.model.built:
+            self.model(tf.zeros((1, 224, 224, 3)))
+        
+        # ✅ EXECUTE: Find and store the layer name
+        self.last_conv_layer_name = find_last_conv_layer_name(self.model)
+        
         self.sampling_rate = sampling_rate
         self.class_names = ['Fake', 'Real']
+        print(f"✓ VideoDetector loaded model: {model_path}")
+        print(f"✓ Using Grad-CAM layer: '{self.last_conv_layer_name}'")
+
     
     def extract_frames(self, video_path, max_frames=None):
         """
@@ -125,7 +139,7 @@ class VideoDeepfakeDetector:
             img_batch = np.expand_dims(img_normalized, axis=0)
             
             # Predict
-            pred = self.model.predict(img_batch, verbose=0)
+            pred = self.model(img_batch, training=False) # Use __call__
             class_idx = np.argmax(pred[0])
             confidence = pred[0][class_idx]
             
@@ -135,10 +149,14 @@ class VideoDeepfakeDetector:
                 'class': class_idx,
                 'class_name': self.class_names[class_idx],
                 'confidence': float(confidence),
-                'probabilities': pred[0].tolist()
+                'probabilities': pred[0].numpy().tolist() # Use .numpy()
             })
         
         # Aggregate results
+        if not predictions:
+            print("!! Warning: No frames analyzed.")
+            return {}
+
         fake_count = sum(1 for p in predictions if p['class'] == 0)
         real_count = len(predictions) - fake_count
         fake_percentage = (fake_count / len(predictions)) * 100
@@ -252,15 +270,17 @@ class VideoDeepfakeDetector:
         ax5 = fig.add_subplot(gs[2, 1])
         window_size = min(10, len(results['frame_predictions']))
         
-        fake_probs = [p['probabilities'][0] for p in results['frame_predictions']]
-        moving_avg = np.convolve(fake_probs, np.ones(window_size)/window_size, mode='valid')
+        if window_size > 0:
+            fake_probs = [p['probabilities'][0] for p in results['frame_predictions']]
+            moving_avg = np.convolve(fake_probs, np.ones(window_size)/window_size, mode='valid')
+            
+            ax5.plot(moving_avg, linewidth=2, color='purple')
+            ax5.axhline(y=0.5, color='black', linestyle='--', linewidth=1, label='Decision Threshold')
+            ax5.fill_between(range(len(moving_avg)), moving_avg, 0.5, 
+                             where=(np.array(moving_avg) > 0.5), alpha=0.3, color='red', label='Fake Region')
+            ax5.fill_between(range(len(moving_avg)), moving_avg, 0.5, 
+                             where=(np.array(moving_avg) <= 0.5), alpha=0.3, color='green', label='Real Region')
         
-        ax5.plot(moving_avg, linewidth=2, color='purple')
-        ax5.axhline(y=0.5, color='black', linestyle='--', linewidth=1, label='Decision Threshold')
-        ax5.fill_between(range(len(moving_avg)), moving_avg, 0.5, 
-                         where=(np.array(moving_avg) > 0.5), alpha=0.3, color='red', label='Fake Region')
-        ax5.fill_between(range(len(moving_avg)), moving_avg, 0.5, 
-                         where=(np.array(moving_avg) <= 0.5), alpha=0.3, color='green', label='Real Region')
         ax5.set_xlabel('Frame', fontweight='bold')
         ax5.set_ylabel('Fake Probability (Moving Avg)', fontweight='bold')
         ax5.set_title(f'Temporal Analysis (Window={window_size})', fontweight='bold')
@@ -290,7 +310,8 @@ if __name__ == "__main__":
     parser.add_argument('--video', type=str, required=True, help='Path to video file')
     parser.add_argument('--model', type=str, default='outputs/best_model_custom.keras',
                        help='Path to trained model')
-    parser.add_I('output', type=str, default='outputs/video_analysis',
+    # ✅ FIXED: Typo 'add_I' to 'add_argument'
+    parser.add_argument('--output', type=str, default='outputs/video_analysis',
                        help='Output directory for results')
     parser.add_argument('--sampling-rate', type=int, default=30,
                        help='Sample every Nth frame')
@@ -317,7 +338,10 @@ if __name__ == "__main__":
     print("\n" + "="*70)
     print("📊 ANALYSIS SUMMARY")
     print("="*70)
-    print(f"Verdict: {results['verdict']}")
-    print(f"Confidence: {results['verdict_confidence']:.2f}%")
-    print(f"Fake Frames: {results['fake_frames']}/{results['frames_analyzed']} ({results['fake_percentage']:.1f}%)")
+    if results:
+        print(f"Verdict: {results['verdict']}")
+        print(f"Confidence: {results['verdict_confidence']:.2f}%")
+        print(f"Fake Frames: {results['fake_frames']}/{results['frames_analyzed']} ({results['fake_percentage']:.1f}%)")
+    else:
+        print("Analysis failed to produce results.")
     print("="*70)

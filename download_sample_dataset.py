@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 
 # ✅ Must come BEFORE importing Kaggle API
-os.environ['KAGGLE_CONFIG_DIR'] = r"A:\Projects\FauxFly"  # folder containing kaggle.json
+os.environ['KAGGLE_CONFIG_DIR'] = r"\content\FauxFly"  # folder containing kaggle.json
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 
