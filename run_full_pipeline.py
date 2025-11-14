@@ -89,7 +89,8 @@ def check_prerequisites():
     print("\n📦 Checking required modules...")
     required_modules = [
         'tensorflow', 'keras', 'numpy', 'pandas', 'sklearn',
-        'cv2', 'PIL', 'mtcnn', 'matplotlib', 'seaborn', 'streamlit'
+        'cv2', 'PIL', 'matplotlib', 'seaborn', 'streamlit',
+        'mediapipe'  # ✅ FIXED: Changed 'mtcnn' to 'mediapipe'
     ]
     
     for module in required_modules:
@@ -107,7 +108,7 @@ def check_prerequisites():
     
     if not all_good:
         print_error("\n❌ Prerequisites check failed!")
-        print_warning("Please run: python 01_dataset_preparation.py first")
+        print_warning("Please run: python dataset_preparation.py first")
         print_warning("And ensure all dependencies are installed: pip install -r requirements.txt")
         return False
     
@@ -293,7 +294,8 @@ def analyze_sample_video(model_type='custom'):
     if not sample_videos:
         print_warning("No sample videos found. Skipping video analysis.")
         print("   To test video analysis, place a video file and run:")
-        print(f"   python 06_video_processor.py --video path/to/video.mp4 --model outputs/best_model_{model_type}.keras")
+        # ✅ FIXED: Removed '06_' prefix
+        print(f"   python video_processor.py --video path/to/video.mp4 --model outputs/best_model_{model_type}.keras")
         return True
     
     print(f"\n🎥 Found {len(sample_videos)} video(s). Analyzing first video...")
@@ -335,7 +337,8 @@ def prepare_streamlit_launch(model_type='custom'):
     
     print("\n🌐 Streamlit app is ready to launch!")
     print("\n📝 To start the web interface, run:")
-    print(f"\n   {Colors.OKGREEN}streamlit run 05_streamlit_app.py{Colors.ENDC}")
+    # ✅ FIXED: Removed '05_' prefix
+    print(f"\n   {Colors.OKGREEN}streamlit run streamlit_app.py{Colors.ENDC}")
     print("\n✨ Features available:")
     print("   • Upload and analyze images")
     print("   • Upload and analyze videos")
@@ -401,7 +404,8 @@ def generate_final_report(training_metrics, test_report, model_type, total_time)
     
     print(f"\n🚀 Next Steps:")
     print(f"   1. Review the generated visualizations in outputs/")
-    print(f"   2. Launch web interface: streamlit run 05_streamlit_app.py")
+    # ✅ FIXED: Removed '05_' prefix
+    print(f"   2. Launch web interface: streamlit run streamlit_app.py")
     print(f"   3. Test on your own images")
     print(f"   4. Prepare your hackathon presentation!")
     
@@ -543,10 +547,11 @@ Examples:
     if args.auto_launch:
         print(f"\n{Colors.OKGREEN}🚀 Launching Streamlit app...{Colors.ENDC}")
         try:
-            subprocess.run(['streamlit', 'run', '05_streamlit_app.py'])
+            # ✅ FIXED: Removed '05_' prefix
+            subprocess.run(['streamlit', 'run', 'streamlit_app.py'])
         except Exception as e:
             print_error(f"Failed to launch Streamlit: {str(e)}")
-            print("Please run manually: streamlit run 05_streamlit_app.py")
+            print("Please run manually: streamlit run streamlit_app.py")
     
     print(f"\n{Colors.OKGREEN}{Colors.BOLD}✅ Pipeline execution completed successfully!{Colors.ENDC}")
     print(f"\n{Colors.OKCYAN}Happy hacking! 🌊{Colors.ENDC}\n")

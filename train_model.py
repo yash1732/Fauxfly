@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 import json
+import argparse  # ✅ Import argparse
 from datetime import datetime
 
 import tensorflow as tf
@@ -180,6 +181,10 @@ class DeepfakeTrainer:
     def plot_training_history(self):
         """Plot training and validation metrics"""
         
+        if not self.history or not self.history.history:
+            print("No training history found, skipping plot.")
+            return
+
         fig, axes = plt.subplots(2, 2, figsize=(15, 10))
         fig.suptitle(f'SynthWave Training History - {self.model_type.upper()}', 
                      fontsize=16, fontweight='bold')
@@ -203,22 +208,24 @@ class DeepfakeTrainer:
         axes[0, 1].grid(True, alpha=0.3)
         
         # Precision
-        axes[1, 0].plot(self.history.history['precision'], label='Train', linewidth=2)
-        axes[1, 0].plot(self.history.history['val_precision'], label='Validation', linewidth=2)
-        axes[1, 0].set_title('Model Precision', fontweight='bold')
-        axes[1, 0].set_xlabel('Epoch')
-        axes[1, 0].set_ylabel('Precision')
-        axes[1, 0].legend()
-        axes[1, 0].grid(True, alpha=0.3)
+        if 'precision' in self.history.history:
+            axes[1, 0].plot(self.history.history['precision'], label='Train', linewidth=2)
+            axes[1, 0].plot(self.history.history['val_precision'], label='Validation', linewidth=2)
+            axes[1, 0].set_title('Model Precision', fontweight='bold')
+            axes[1, 0].set_xlabel('Epoch')
+            axes[1, 0].set_ylabel('Precision')
+            axes[1, 0].legend()
+            axes[1, 0].grid(True, alpha=0.3)
         
         # Recall
-        axes[1, 1].plot(self.history.history['recall'], label='Train', linewidth=2)
-        axes[1, 1].plot(self.history.history['val_recall'], label='Validation', linewidth=2)
-        axes[1, 1].set_title('Model Recall', fontweight='bold')
-        axes[1, 1].set_xlabel('Epoch')
-        axes[1, 1].set_ylabel('Recall')
-        axes[1, 1].legend()
-        axes[1, 1].grid(True, alpha=0.3)
+        if 'recall' in self.history.history:
+            axes[1, 1].plot(self.history.history['recall'], label='Train', linewidth=2)
+            axes[1, 1].plot(self.history.history['val_recall'], label='Validation', linewidth=2)
+            axes[1, 1].set_title('Model Recall', fontweight='bold')
+            axes[1, 1].set_xlabel('Epoch')
+            axes[1, 1].set_ylabel('Recall')
+            axes[1, 1].legend()
+            axes[1, 1].grid(True, alpha=0.3)
         
         plt.tight_layout()
         plt.savefig(self.output_dir / f'training_history_{self.model_type}.png', 
@@ -310,15 +317,28 @@ class DeepfakeTrainer:
 def main():
     """Main training function"""
     
+    # ✅ Setup argparse
+    parser = argparse.ArgumentParser(description='SynthWave Training Pipeline')
+    parser.add_argument('--model-type', type=str, default='custom',
+                        choices=['custom', 'mobilenet', 'efficientnet'],
+                        help='Model architecture to use')
+    parser.add_argument('--epochs', type=int, default=50,
+                        help='Number of training epochs')
+    parser.add_argument('--batch-size', type=int, default=32,
+                        help='Training batch size')
+    args = parser.parse_args()
+
     print("\n" + "="*70)
     print("🌊 SYNTHWAVE DEEPFAKE DETECTOR - TRAINING PIPELINE")
     print("="*70)
     
-    # Configuration
-    MODEL_TYPE = 'custom'  # Options: 'custom', 'mobilenet', 'efficientnet'
-    EPOCHS = 50
-    BATCH_SIZE = 32
+    # ✅ Use args from argparse
+    MODEL_TYPE = args.model_type
+    EPOCHS = args.epochs
+    BATCH_SIZE = args.batch_size
     IMG_SIZE = (224, 224)
+    
+    print(f"Configuration: Model={MODEL_TYPE}, Epochs={EPOCHS}, BatchSize={BATCH_SIZE}")
     
     # Initialize trainer
     trainer = DeepfakeTrainer(
